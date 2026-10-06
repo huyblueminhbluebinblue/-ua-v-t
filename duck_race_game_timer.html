@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duck Race Timer & Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@500;700;800&display=swap');
+        
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background-color: #1e293b;
+            user-select: none;
+        }
+
+        .digital-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .custom-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Custom scrollbar for sidebar/settings */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Animated confetti effect canvas */
+        #confettiCanvas {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Top Header -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 shadow-lg sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-yellow-400 rounded-2xl flex items-center justify-center text-slate-900 text-2xl shadow-lg transform -rotate-6">
+                    <i class="fa-solid fa-duck">🦆</i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-wide text-yellow-400 leading-tight">DUCK RACE TIMER</h1>
+                    <p class="text-xs text-slate-400">Interactive Swimming Race Stopwatch & Countdown</p>
+                </div>
+            </div>
+
+            <!-- Top Stopwatch Display -->
+            <div class="bg-slate-950 border-2 border-yellow-500/40 rounded-xl px-6 py-2 flex items-center shadow-inner">
+                <i class="fa-solid fa-stopwatch text-yellow-400 text-xl mr-3 animate-pulse"></i>
+                <span id="timerDisplay" class="digital-font text-3xl md:text-4xl font-extrabold text-yellow-300 tracking-wider">
+                    00:00:00
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="max-w-6xl w-full mx-auto p-4 flex-1 flex flex-col justify-center items-center relative">
+        <canvas id="confettiCanvas"></canvas>
+
+        <!-- Main Race View Box -->
+        <div class="w-full bg-slate-800 rounded-3xl overflow-hidden border-4 border-slate-700 custom-shadow flex flex-col relative">
+            
+            <!-- Controls Bar Above Canvas -->
+            <div class="bg-slate-900/90 p-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-700">
+                
+                <!-- Main Action Buttons -->
+                <div class="flex items-center space-x-2">
+                    <button id="startBtn" onclick="toggleRace()" class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold px-5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span id="startBtnText">Start Race</span>
+                    </button>
+                    
+                    <button id="resetBtn" onclick="resetRace()" class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Reset</span>
+                    </button>
+
+                    <button onclick="shuffleDucks()" class="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                        <i class="fa-solid fa-shuffle"></i>
+                        <span class="hidden sm:inline">Shuffle</span>
+                    </button>
+                </div>
+
+                <!-- Duck Count Settings Slider -->
+                <div class="flex items-center space-x-3 bg-slate-800/80 px-4 py-1.5 rounded-xl border border-slate-700">
+                    <label for="duckSlider" class="text-xs md:text-sm font-semibold text-slate-300 flex items-center gap-2">
+                        <span>Ducks:</span>
+                        <span id="duckCountLabel" class="bg-yellow-400 text-slate-900 font-bold px-2 py-0.5 rounded-md text-xs">8</span>
+                    </label>
+                    <input type="range" id="duckSlider" min="2" max="25" value="8" oninput="updateDuckCount(this.value)" class="w-24 sm:w-32 accent-yellow-400 cursor-pointer">
+                </div>
+
+                <!-- Audio Toggles -->
+                <div class="flex items-center space-x-2">
+                    <button id="soundToggle" onclick="toggleAudio()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-yellow-400 transition" title="Toggle Sound">
+                        <i id="soundIcon" class="fa-solid fa-volume-high text-lg"></i>
+                    </button>
+                    <button onclick="openCustomNamesModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-cyan-400 transition" title="Customize Duck Names">
+                        <i class="fa-solid fa-pen-to-square text-lg"></i>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Race Canvas Container -->
+            <div class="relative w-full h-[450px] md:h-[550px] bg-sky-600 overflow-hidden">
+                <canvas id="raceCanvas" class="w-full h-full block cursor-pointer"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- Winner Modal -->
+    <div id="winnerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center z-50 p-4 transition-all">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 text-center shadow-2xl border-2 border-yellow-400/50 transform scale-90 animate-fade-in">
+            <div class="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center text-4xl mx-auto shadow-lg mb-3 -mt-12 border-4 border-slate-900">
+                🏆
+            </div>
+            <h2 class="text-3xl font-extrabold text-yellow-400 mb-1">Race Finished!</h2>
+            <p class="text-sm text-slate-300 mb-4">Here are our champions in order of finish:</p>
+
+            <!-- Leaderboard List -->
+            <div id="leaderboardList" class="space-y-2 mb-6 max-h-56 overflow-y-auto pr-1">
+                <!-- Dynamic Content Insertion -->
+            </div>
+
+            <button onclick="closeWinnerModal()" class="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-extrabold py-3 rounded-xl shadow-lg transition transform active:scale-95">
+                Play Again 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Names Modal -->
+    <div id="namesModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel max-w-lg w-full rounded-3xl p-6 shadow-2xl border border-slate-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                    <i class="fa-solid fa-users"></i> Customize Duck Names
+                </h3>
+                <button onclick="closeCustomNamesModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">Enter names separated by commas or line breaks:</p>
+            <textarea id="duckNamesInput" class="w-full h-36 bg-slate-900 text-slate-200 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-yellow-400 mb-4" placeholder="Duck 1, Duck 2, Duck 3..."></textarea>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="closeCustomNamesModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700">Cancel</button>
+                <button onclick="saveCustomNames()" class="px-5 py-2 bg-yellow-400 text-slate-950 rounded-xl font-bold hover:bg-yellow-300">Save Names</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900/60 border-t border-slate-800 text-center py-3 text-xs text-slate-500">
+        Inspired by Online-Stopwatch Duck Race • Interactive Animated Canvas Game
+    </footer>
+
+    <script>
+        // Synthesized Audio System using Web Audio API (No external sound files required)
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playQuack() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playBeep(freq = 600, duration = 0.1) {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            playCheer() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                // Major arpeggio cheer
+                const notes = [400, 500, 600, 800];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playBeep(freq, 0.25);
+                    }, idx * 80);
+                });
+            }
+        }
+
+        const sound = new SoundFX();
+
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+        const confettiCanvas = document.getElementById('confettiCanvas');
+        const confettiCtx = confettiCanvas.getContext('2d');
+
+        let isRacing = false;
+        let isFinished = false;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let animationFrameId = null;
+
+        let numDucks = 8;
+        let ducks = [];
+        let winnersList = [];
+        let customNames = [];
+
+        // Vibrant Duck Color Palettes
+        const DUCK_COLORS = [
+            { main: '#FACC15', beak: '#F97316' }, // Classic Yellow
+            { main: '#4ADE80', beak: '#EA580C' }, // Green
+            { main: '#38BDF8', beak: '#E11D48' }, // Cyan
+            { main: '#F472B6', beak: '#D97706' }, // Pink
+            { main: '#FB923C', beak: '#C026D3' }, // Orange
+            { main: '#A78BFA', beak: '#16A34A' }, // Purple
+            { main: '#F87171', beak: '#0284C7' }, // Red
+            { main: '#2DD4BF', beak: '#E11D48' }  // Teal
+        ];
+
+        class Duck {
+            constructor(id, index, name) {
+                this.id = id;
+                this.index = index;
+                this.name = name || `Duck ${id}`;
+                this.x = 0; // Will be set on reset
+                this.y = 0;
+                this.progress = 0; // 0 to 1 scale
+                this.baseSpeed = 0.0008 + Math.random() * 0.0006;
+                this.currentSpeed = this.baseSpeed;
+                this.finished = false;
+                this.finishTime = null;
+                this.color = DUCK_COLORS[(id - 1) % DUCK_COLORS.length];
+                
+                // Bobbing animation offset
+                this.bobPhase = Math.random() * Math.PI * 2;
+                this.wingPhase = Math.random() * Math.PI * 2;
+            }
+
+            reset() {
+                this.progress = 0;
+                this.finished = false;
+                this.finishTime = null;
+                this.baseSpeed = 0.0008 + Math.random() * 0.0006;
+                this.currentSpeed = this.baseSpeed;
+            }
+
+            update(dt) {
+                if (this.finished) return;
+
+                // Random speed bursts / swimming organic rhythm
+                if (Math.random() < 0.03) {
+                    this.currentSpeed = this.baseSpeed * (0.4 + Math.random() * 1.8);
+                }
+
+                this.progress += this.currentSpeed * (dt / 16);
+                this.bobPhase += 0.08;
+                this.wingPhase += 0.12;
+
+                if (this.progress >= 1) {
+                    this.progress = 1;
+                    this.finished = true;
+                    this.finishTime = elapsedTime;
+                    winnersList.push(this);
+                    sound.playQuack();
+                }
+            }
+
+            draw(ctx, laneY, laneHeight, startX, finishX) {
+                const totalWidth = finishX - startX;
+                const duckX = startX + (this.progress * totalWidth);
+                const bobY = Math.sin(this.bobPhase) * 3;
+                const duckY = laneY + (laneHeight / 2) + bobY;
+
+                const duckSize = Math.min(laneHeight * 0.65, 36);
+
+                ctx.save();
+                ctx.translate(duckX, duckY);
+
+                // Water Ripple
+                ctx.beginPath();
+                ctx.ellipse(-duckSize * 0.1, duckSize * 0.3, duckSize * 0.6, duckSize * 0.2, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+
+                // Duck Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, duckSize * 0.5, duckSize * 0.38, 0, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.main;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#0f172a';
+                ctx.stroke();
+
+                // Wing
+                const wingBob = Math.sin(this.wingPhase) * 2;
+                ctx.beginPath();
+                ctx.ellipse(-duckSize * 0.1, wingBob, duckSize * 0.25, duckSize * 0.18, -0.2, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff33';
+                ctx.fill();
+                ctx.stroke();
+
+                // Duck Head
+                const headX = duckSize * 0.35;
+                const headY = -duckSize * 0.3;
+                ctx.beginPath();
+                ctx.arc(headX, headY, duckSize * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.main;
+                ctx.fill();
+                ctx.stroke();
+
+                // Beak
+                ctx.beginPath();
+                ctx.ellipse(headX + (duckSize * 0.28), headY + 2, duckSize * 0.18, duckSize * 0.1, 0, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.beak;
+                ctx.fill();
+                ctx.stroke();
+
+                // Eye
+                ctx.beginPath();
+                ctx.arc(headX + (duckSize * 0.12), headY - (duckSize * 0.08), duckSize * 0.06, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+
+                // Eye Shine
+                ctx.beginPath();
+                ctx.arc(headX + (duckSize * 0.14), headY - (duckSize * 0.1), duckSize * 0.02, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                // Number Badge Tag
+                ctx.beginPath();
+                ctx.arc(-duckSize * 0.1, -duckSize * 0.1, duckSize * 0.22, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Number Text
+                ctx.fillStyle = '#0f172a';
+                ctx.font = `bold ${Math.max(10, duckSize * 0.3)}px Fredoka, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.id, -duckSize * 0.1, -duckSize * 0.08);
+
+                // Duck Name Tag above Head
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                ctx.font = `bold ${Math.max(10, duckSize * 0.28)}px Fredoka, sans-serif`;
+                ctx.strokeText(this.name, 0, -duckSize * 0.7);
+                ctx.fillText(this.name, 0, -duckSize * 0.7);
+
+                ctx.restore();
+            }
+        }
+
+        function initDucks() {
+            ducks = [];
+            winnersList = [];
+            for (let i = 1; i <= numDucks; i++) {
+                const name = customNames[i - 1] || `Duck ${i}`;
+                ducks.push(new Duck(i, i - 1, name));
+            }
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            confettiCanvas.width = container.clientWidth;
+            confettiCanvas.height = container.clientHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            drawScene();
+        });
+
+        let lastTime = performance.now();
+
+        function drawScene() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear Background (Water)
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(0, 0, width, height);
+
+            // Water Waves Texture
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 3;
+            const waveOffset = (performance.now() * 0.02) % 40;
+            for (let y = 0; y < height; y += 30) {
+                ctx.beginPath();
+                for (let x = -40; x < width + 40; x += 40) {
+                    ctx.quadraticCurveTo(x + 20 + waveOffset, y - 5, x + 40 + waveOffset, y);
+                }
+                ctx.stroke();
+            }
+
+            const topPadding = 40;
+            const bottomPadding = 30;
+            const availableHeight = height - topPadding - bottomPadding;
+            const laneHeight = availableHeight / numDucks;
+
+            const startX = 60;
+            const finishX = width - 90;
+
+            // Draw Lanes
+            for (let i = 0; i < numDucks; i++) {
+                const laneY = topPadding + (i * laneHeight);
+
+                // Alternating lane water shades
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, laneY, width, laneHeight);
+
+                // Lane divider line
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, laneY);
+                ctx.lineTo(width, laneY);
+                ctx.stroke();
+            }
+
+            // Draw Start Line
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.moveTo(startX, topPadding);
+            ctx.lineTo(startX, height - bottomPadding);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Checkered Finish Line Banner
+            const checkSize = 12;
+            const numRows = Math.floor(availableHeight / checkSize);
+            for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < 2; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? '#000000' : '#ffffff';
+                    ctx.fillRect(finishX + (c * checkSize), topPadding + (r * checkSize), checkSize, checkSize);
+                }
+            }
+
+            // Draw Finish Pole/Line border
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(finishX, topPadding, checkSize * 2, availableHeight);
+
+            // Draw Ducks
+            ducks.forEach(duck => {
+                const laneY = topPadding + (duck.index * laneHeight);
+                duck.draw(ctx, laneY, laneHeight, startX, finishX);
+            });
+        }
+
+        function gameLoop(now) {
+            const dt = now - lastTime;
+            lastTime = now;
+
+            if (isRacing) {
+                elapsedTime = performance.now() - startTime;
+                updateTimerDisplay(elapsedTime);
+
+                let allFinished = true;
+                ducks.forEach(duck => {
+                    duck.update(dt);
+                    if (!duck.finished) allFinished = false;
+                });
+
+                if (allFinished) {
+                    endRace();
+                }
+            }
+
+            drawScene();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateTimerDisplay(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const milliseconds = Math.floor((ms % 1000) / 10);
+
+            const pad = (n) => n.toString().padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${pad(minutes)}:${pad(seconds)}:${pad(milliseconds)}`;
+        }
+
+        function toggleRace() {
+            if (!isRacing) {
+                if (isFinished) resetRace();
+                
+                isRacing = true;
+                isFinished = false;
+                startTime = performance.now() - elapsedTime;
+                sound.playBeep(800, 0.2);
+
+                document.getElementById('startBtn').classList.replace('bg-emerald-500', 'bg-amber-500');
+                document.getElementById('startBtn').classList.replace('hover:bg-emerald-400', 'hover:bg-amber-400');
+                document.getElementById('startBtnText').innerText = 'Pause Race';
+            } else {
+                isRacing = false;
+                document.getElementById('startBtn').classList.replace('bg-amber-500', 'bg-emerald-500');
+                document.getElementById('startBtn').classList.replace('hover:bg-amber-400', 'hover:bg-emerald-400');
+                document.getElementById('startBtnText').innerText = 'Resume Race';
+            }
+        }
+
+        function resetRace() {
+            isRacing = false;
+            isFinished = false;
+            elapsedTime = 0;
+            winnersList = [];
+            updateTimerDisplay(0);
+
+            ducks.forEach(duck => duck.reset());
+
+            document.getElementById('startBtn').classList.replace('bg-amber-500', 'bg-emerald-500');
+            document.getElementById('startBtn').classList.replace('hover:bg-amber-400', 'hover:bg-emerald-400');
+            document.getElementById('startBtnText').innerText = 'Start Race';
+            
+            stopConfetti();
+        }
+
+        function shuffleDucks() {
+            // Randomize lane positions
+            for (let i = ducks.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [ducks[i].index, ducks[j].index] = [ducks[j].index, ducks[i].index];
+            }
+            sound.playQuack();
+        }
+
+        function updateDuckCount(val) {
+            numDucks = parseInt(val, 10);
+            document.getElementById('duckCountLabel').innerText = numDucks;
+            resetRace();
+            initDucks();
+        }
+
+        function toggleAudio() {
+            sound.muted = !sound.muted;
+            const icon = document.getElementById('soundIcon');
+            if (sound.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-lg text-rose-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-lg text-yellow-400';
+            }
+        }
+
+        function endRace() {
+            isRacing = false;
+            isFinished = true;
+
+            sound.playCheer();
+            startConfetti();
+
+            document.getElementById('startBtnText').innerText = 'Finished!';
+
+            // Render Leaderboard
+            const leaderboard = document.getElementById('leaderboardList');
+            leaderboard.innerHTML = '';
+
+            winnersList.forEach((duck, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                const timeSec = (duck.finishTime / 1000).toFixed(2);
+                
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between p-2.5 rounded-xl ${
+                    idx === 0 ? 'bg-yellow-400/20 border border-yellow-400/50 text-yellow-300 font-bold' : 'bg-slate-800/80 text-slate-200'
+                }`;
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-lg w-6 text-center font-extrabold">${medal}</span>
+                        <div class="w-6 h-6 rounded-full border border-white/20" style="background-color: ${duck.color.main}"></div>
+                        <span class="text-sm font-semibold">${duck.name}</span>
+                    </div>
+                    <span class="digital-font text-xs text-slate-400">${timeSec}s</span>
+                `;
+                leaderboard.appendChild(item);
+            });
+
+            setTimeout(() => {
+                document.getElementById('winnerModal').classList.remove('hidden');
+                document.getElementById('winnerModal').classList.add('flex');
+            }, 600);
+        }
+
+        function closeWinnerModal() {
+            document.getElementById('winnerModal').classList.add('hidden');
+            document.getElementById('winnerModal').classList.remove('flex');
+            resetRace();
+        }
+
+        function openCustomNamesModal() {
+            const textarea = document.getElementById('duckNamesInput');
+            textarea.value = ducks.map(d => d.name).join(', ');
+            document.getElementById('namesModal').classList.remove('hidden');
+            document.getElementById('namesModal').classList.add('flex');
+        }
+
+        function closeCustomNamesModal() {
+            document.getElementById('namesModal').classList.add('hidden');
+            document.getElementById('namesModal').classList.remove('flex');
+        }
+
+        function saveCustomNames() {
+            const raw = document.getElementById('duckNamesInput').value;
+            const parsed = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (parsed.length > 0) {
+                customNames = parsed;
+                ducks.forEach((duck, idx) => {
+                    if (customNames[idx]) duck.name = customNames[idx];
+                });
+            }
+            closeCustomNamesModal();
+            drawScene();
+        }
+
+        let confettiParticles = [];
+        let confettiAnimating = false;
+
+        function startConfetti() {
+            confettiParticles = [];
+            for (let i = 0; i < 120; i++) {
+                confettiParticles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    size: Math.random() * 8 + 4,
+                    color: ['#facc15', '#4ade80', '#38bdf8', '#f472b6', '#fb923c'][Math.floor(Math.random() * 5)],
+                    speedY: Math.random() * 3 + 2,
+                    speedX: Math.random() * 2 - 1,
+                    rotation: Math.random() * 360
+                });
+            }
+            confettiAnimating = true;
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            if (!confettiAnimating) return;
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            confettiParticles.forEach((p) => {
+                p.y += p.speedY;
+                p.x += p.speedX;
+                p.rotation += 2;
+
+                confettiCtx.save();
+                confettiCtx.translate(p.x, p.y);
+                confettiCtx.rotate((p.rotation * Math.PI) / 180);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                confettiCtx.restore();
+            });
+
+            confettiParticles = confettiParticles.filter(p => p.y < confettiCanvas.height + 20);
+
+            if (confettiParticles.length > 0) {
+                requestAnimationFrame(animateConfetti);
+            } else {
+                confettiAnimating = false;
+            }
+        }
+
+        function stopConfetti() {
+            confettiAnimating = false;
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            initDucks();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
